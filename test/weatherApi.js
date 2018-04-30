@@ -32,11 +32,9 @@ function promiseAPI() {
     const noop = _ => {};
     //operation.onSuccess=
     //operation.onError
-    operation.onComplete = (successCb, errorCb) => {
-      
+    operation.onComplete = (successCb, errorCb) => {   
         operation.successCbs.push(successCb || noop);
         operation.errorCbs.push(errorCb || noop);
- 
     };
 
     operation.succeed = (result) => {
@@ -59,6 +57,9 @@ function promiseAPI() {
 
     };
 
+    operation.onFailure = (onerror)=>{
+        operation.onComplete(null, onerror);
+    };
     return operation;
 };
 /**/
@@ -69,15 +70,15 @@ function fetchCurrentCity() {
     var promise = new promiseAPI();
     // fetchCityPromise.onComplete(result => console.log(result), error => console.log(error));
  
-  setTimeout(function () {
+ /* setTimeout(function () {
         promise.onComplete(result => console.log("success: " + result), error => console.log("error: " + error));
-    }, delayms);
+    }, delayms);*/
 
     var city = getCurrentCity(promise.nodeCallback);
 
     return promise;
 }
-var a = fetchCurrentCity();
+var a = fetchCurrentCity().onComplete(result => console.log("success: " + result), error => console.log("error: " + error));
 
 /**
  * Async operations
