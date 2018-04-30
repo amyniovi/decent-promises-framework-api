@@ -1,4 +1,4 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-    "vscode-qunit.file": "/c:/Development/VSCodeStuff/test/tests.js"
+    "vscode-qunit.file": "/c:/Development/VSCodeStuff/test/testQUnit.js"
 }
