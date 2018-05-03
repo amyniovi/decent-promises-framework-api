@@ -103,28 +103,29 @@ var promiseAPI = function promiseAPI() {
         operation.successCbs.push(successHandler || noop);
         operation.errorCbs.push(errorHandler || noop);
 
+        operation.resolve = function resolve(value) {
+            //if the success handler returns  a promise  (hence if there  is nesting)
+            if (value && value.then) {
+                vaule.forwardCompletion(proxyOp);
+                return;
+            }
+            proxyOp.succeed(value);
+
+        };
+
         function successHandler() {
 
-            doLater(function(){
+            doLater(function () {
 
- let cbResult;
+                let cbResult;
                 try {
                     cbResult = successCb(operation.result);
                 } catch (error) {
                     proxyOp.fail(error);
                     return;
                 }
-
-            //if the success handler returns  a promise  (hence if there  is nesting)
-            if (cbResult && cbResult.then) {
-                    cbResult.forwardCompletion(proxyOp);
-                    return;
-                }
-                proxyOp.succeed();
+                proxyOp.resolve(cbResult);
             });
-
-          
-
         }
 
         function errorHandler() {
@@ -138,11 +139,7 @@ var promiseAPI = function promiseAPI() {
                     return;
                 }
 
-                if (cbResult && cbResult.then) {
-                    cbResult.forwardCompletion(proxyOp);
-                    return;
-                }
-                proxyOp.succeed();
+               proxyOp.resolve(cbResult);
 
             });
         }
