@@ -3,6 +3,11 @@ console.log("my Weather forecast:");
 //const assert = require('assert');
 const delayms = 1;
 
+/**
+ * Async operations
+ */
+
+
 function getCurrentCity(callback) {
     setTimeout(function () {
         const city = "boston";
@@ -10,17 +15,69 @@ function getCurrentCity(callback) {
     }, delayms);
 }
 
+function getForecast(city, callback) {
+
+    setTimeout(function () {
+
+        const forecast = {
+            temp: [25, 22, 15, 11]
+        };
+        callback(null, forecast);
+    }, delayms);
+}
+
+function getWeather(city, callback) {
+
+    setTimeout(function () {
+        const weather = {
+            temp: 25
+        };
+        callback(null, weather);
+    }, delayms);
+}
+/**/
+/*Async  operation using promises  framework*/
+
+function fetchWeather(city) {
+    var promise = new promiseAPI();
+
+    var weather = getWeather(city, promise.nodeCallback);
+
+    return promise;
+}
+
+function fetchForecast(city) {
+    var promise = new promiseAPI();
+
+    var forecast = getForecast(city, promise.nodeCallback);
+
+    return promise;
+}
+
+function fetchCurrentCity() {
+
+    var promise = new promiseAPI();
+
+    var city = getCurrentCity(promise.nodeCallback);
+
+    /*  setTimeout(function () {
+         promise.then(result => console.log("success: " + result), error => console.log("error: " + error));
+     }, delayms);*/
+
+    return promise;
+}
+
 /**
  * 
  * Promise framework
  */
 
-function promiseAPI() {
+var promiseAPI = function promiseAPI() {
 
     const state = Object.freeze({
         pending: 1,
-        succeeded: 2,
-        failed: 3
+        fullfilled: 2,
+        rejected: 3
     });
 
     const operation = {
@@ -30,20 +87,84 @@ function promiseAPI() {
     };
 
     const noop = _ => {};
-    //operation.onSuccess=
-    //operation.onError
-    operation.onComplete = (successCb, errorCb) => {   
-        operation.successCbs.push(successCb || noop);
-        operation.errorCbs.push(errorCb || noop);
+
+    operation.then = (successCb, errorCb) => {
+
+        var proxyOp = new promiseAPI();
+
+        if (operation.state == state.fullfilled) {
+            successCb(operation.result);
+            return;
+        }
+        if (operation.state == state.rejected) {
+            errorCb(operation.error);
+            return;
+        }
+        operation.successCbs.push(successHandler || noop);
+        operation.errorCbs.push(errorHandler || noop);
+
+        function successHandler() {
+
+            doLater(function(){
+
+ let cbResult;
+                try {
+                    cbResult = successCb(operation.result);
+                } catch (error) {
+                    proxyOp.fail(error);
+                    return;
+                }
+
+            //if the success handler returns  a promise  (hence if there  is nesting)
+            if (cbResult && cbResult.then) {
+                    cbResult.forwardCompletion(proxyOp);
+                    return;
+                }
+                proxyOp.succeed();
+            });
+
+          
+
+        }
+
+        function errorHandler() {
+
+            doLater(function () {
+                let cbResult;
+                try {
+                    cbResult = errorCb(operation.error);
+                } catch (error) {
+                    proxyOp.fail(error);
+                    return;
+                }
+
+                if (cbResult && cbResult.then) {
+                    cbResult.forwardCompletion(proxyOp);
+                    return;
+                }
+                proxyOp.succeed();
+
+            });
+        }
+
+
+
+        function doLater(fn) {
+            setTimeout(fn, delayms);
+        }
+
+        return proxyOp;
     };
 
     operation.succeed = (result) => {
-        operation.state = state.succeeded;
+        operation.state = state.fullfilled;
+        operation.result = result;
         operation.successCbs.forEach(cb => cb(result));
     };
 
     operation.fail = (error) => {
-        operation.state = state.failed;
+        operation.state = state.rejected;
+        operation.error = error;
         operation.successCbs.forEach(cb => cb(error));
     };
 
@@ -57,48 +178,57 @@ function promiseAPI() {
 
     };
 
-    operation.onFailure = (onerror)=>{
-        operation.onComplete(null, onerror);
+    operation.onFailure = (onerror) => {
+        return operation.then(null, onerror);
     };
+
+    operation.forwardCompletion = (opToForwardResult) => {
+        operation.then(opToForwardResult.succeed, opToForwardResult.fail);
+    };
+
     return operation;
 };
-/**/
-/*Async  operation using promises  framework*/
 
-function fetchCurrentCity() {
+const city = "boston";
+var promise = new promiseAPI();
+var forecastOp = fetchForecast(city, promise.nodeCallback);
+var weatherOp = fetchWeather(city, promise.nodeCallback);
 
-    var promise = new promiseAPI();
-    // fetchCityPromise.onComplete(result => console.log(result), error => console.log(error));
- 
- /* setTimeout(function () {
-        promise.onComplete(result => console.log("success: " + result), error => console.log("error: " + error));
-    }, delayms);*/
+//var a = fetchCurrentCity().then(result => console.log("success: " + result), error => console.log("error: " + error));
+forecastOp.then(function (forecast) {
+    weatherOp.then(function (weather) {
+        console.log(`Weather  today  : ${weather.temp} and forecast  today ${forecast.temp}`);
+    })
 
-    var city = getCurrentCity(promise.nodeCallback);
+});
 
-    return promise;
-}
-var a = fetchCurrentCity().onComplete(result => console.log("success: " + result), error => console.log("error: " + error));
 
-/**
- * Async operations
- */
-function getWeather(city, callback) {
 
-    setTimeout(function () {
-        if (city == null)
-            callback(new Error("oops...no city found"), null);
+var getCityPromise = fetchCurrentCity();
 
-        const weather = {
-            temp: 20
-        };
+//here we are nesting promises but by  creating a "new promise" in global scope  we  are  able  to capture the  result
+//which in this case is the weather, and use it elsewhere in our app 
+/*getCityPromise.then(function (city) {
+    fetchWeather(city).then(function (weather) {
+        getWeatherPromise.succeed(weather);
+    });
 
-        callback(null, city);
-    }, delayms);
+    getWeatherPromise.then((weather) => console.log(`test just passed yo! ${weather.temp}`));
+});*/
+var getWeatherPromise;
+getCityPromise
+    .then(fetchWeather)
+    .then((weather) => console.log(`test passed  : ${weather.temp} `));
 
-}
 
-function getForecast() {};
+//getWeatherPromise.then((weather) => console.log(`test just passed yo! ${weather.temp}`));
+
+
+
+
+
+
+
 
 
 
